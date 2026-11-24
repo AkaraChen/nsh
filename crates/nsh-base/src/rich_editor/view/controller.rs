@@ -898,6 +898,7 @@ impl Rv {
 
     /// The sink's text changed: what was deleted and typed since.
     pub(crate) fn sink_changed(&self, text: &str) {
+        log::warn!("SINKDBG change {:?} held={:?} caret={:?} head={}", text, self.sink.borrow().text, self.sink.borrow().caret, self.session.state().selection().head());
         // Platforms report the uncommitted text (pinyin, kana) as the sink's
         // while it lasts; the document takes only the commit.
         if self.sink.borrow().composing {
@@ -975,6 +976,7 @@ impl Rv {
     /// what the sink is known to hold (its text is reported after it) or
     /// across text the document does not show the same way is left alone.
     pub(crate) fn sink_selection(&self, selection: &nsh_core::element::Selection) {
+        log::warn!("SINKDBG selection {}-{} text={:?} caret={:?} head={}", selection.start, selection.end, self.sink.borrow().text, self.sink.borrow().caret, self.session.state().selection().head());
         {
             let mut sink = self.sink.borrow_mut();
             sink.reported = None;
@@ -1001,6 +1003,7 @@ impl Rv {
     /// Moves the editor's caret to where the sink's own caret was last
     /// reported, read against the text the sink holds now.
     fn follow_sink_caret(&self) {
+        log::warn!("SINKDBG follow reported={:?} text={:?} caret={:?} head={}", self.sink.borrow().reported, self.sink.borrow().text, self.sink.borrow().caret, self.session.state().selection().head());
         let (from, to) = {
             let mut sink = self.sink.borrow_mut();
             let Some(reported) = sink.reported.take() else {
