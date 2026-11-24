@@ -172,12 +172,22 @@ jobs:
       - name: DIAG loop the gallery tests in GTK windows
         run: |
           cargo build -p nsh-cli
-          run() { dbus-run-session -- xvfb-run -a ./target/debug/nsh test "$@" --target linux 2>&1 | grep -v -e "portal" -e "dbus-daemon" -e "^$" -e "Gtk-WARNING" -e "SpiRegistry"; }
-          for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+          nproc
+          run() { dbus-run-session -- xvfb-run -a ./target/debug/nsh test "$@" --target linux 2>&1 | grep --line-buffered -v -e "portal" -e "dbus-daemon" -e "^$" -e "Gtk-WARNING" -e "SpiRegistry" -e "pw.conf"; }
+          echo "=== phase A: the step's own sequence"
+          run examples/counter || true
+          for file in combobox-click context-menu device dock form gestures hover links navigation network photos resizable shortcuts storage timers; do
+            run "examples/gallery/tests/$file.test.tsx" || true
+            ps -eo pcpu,etime,comm --sort=-pcpu | head -6
+          done
+          echo "=== phase B: under CPU load"
+          for n in $(seq "$(nproc)"); do ( while :; do :; done ) & done
+          for i in 1 2 3 4 5 6 7 8; do
             echo "=== storage round $i"
             run examples/gallery/tests/storage.test.tsx || true
           done
-          for i in 1 2 3; do
+          for i in 1 2; do
             echo "=== form round $i"
             run examples/gallery/tests/form.test.tsx || true
           done
+          kill $(jobs -p) || true
