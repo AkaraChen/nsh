@@ -573,6 +573,48 @@ impl Native for LinuxNative {
         self.on_main(|s| s.animating()).unwrap_or(false)
     }
 
+    fn diagnose(&self, id: NodeId) -> String {
+        self.on_main(move |surface| {
+            let mut out = String::new();
+            let view = surface.mounter.borrow().views.get(&id).cloned();
+            let Some(view) = view else {
+                return "no view in the mounter".to_owned();
+            };
+            let root = crate::window::root_of(surface, &view);
+            out += &format!(
+                "visible={} child_visible={} mapped={} drawable={} root={} root_mapped={} root_size={}x{} bounds_in_root={:?}",
+                view.is_visible(),
+                view.is_child_visible(),
+                view.is_mapped(),
+                view.is_drawable(),
+                root.id(),
+                root.is_mapped(),
+                root.width(),
+                root.height(),
+                view.compute_bounds(&root).map(|r| (r.x(), r.y(), r.width(), r.height())),
+            );
+            // The first ancestor that is not mapped or not child visible.
+            let mut w: Option<gtk::Widget> = Some(view.clone().upcast());
+            while let Some(widget) = w {
+                if !widget.is_child_visible() || !widget.is_visible() || !widget.is_mapped() {
+                    out += &format!(
+                        " | ancestor {} ({:?}) visible={} child_visible={} mapped={}",
+                        widget.type_().name(),
+                        widget.downcast_ref::<crate::view::NshView>().map(|v| v.id()),
+                        widget.is_visible(),
+                        widget.is_child_visible(),
+                        widget.is_mapped()
+                    );
+                }
+                w = widget.parent();
+            }
+            out += &format!(" | windows: {}", crate::window::diag_windows(surface));
+            out += &format!(" | animating={}", surface.animating());
+            out
+        })
+        .unwrap_or_else(|| "main thread did not answer".to_owned())
+    }
+
     fn screenshot(&self) -> Result<Vec<u8>, String> {
         let (tx, rx) = mpsc::channel();
         let key = self.key;

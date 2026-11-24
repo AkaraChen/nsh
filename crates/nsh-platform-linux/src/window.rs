@@ -826,6 +826,26 @@ fn resize(surface: &Surface, view: &NshView, width: f32, height: f32) {
     crate::system::root_resized(view, width, height);
 }
 
+/// DIAG: the app's windows.
+pub(crate) fn diag_windows(surface: &Surface) -> String {
+    let main = main_window(surface).map(|w| (w.is_visible(), w.is_mapped()));
+    let windows = surface.windows.borrow();
+    let list: Vec<String> = windows
+        .iter()
+        .map(|(id, w)| {
+            format!(
+                "{id}: visible={} mapped={} pending={:?} size={}x{}",
+                w.window.is_visible(),
+                w.window.is_mapped(),
+                w.pending,
+                w.window.width(),
+                w.window.height()
+            )
+        })
+        .collect();
+    format!("main={main:?} [{}]", list.join(", "))
+}
+
 /// A batch was mounted: the windows whose first frame it holds show.
 pub(crate) fn batch_applied(surface: &Rc<Surface>) {
     let ready: Vec<NodeId> = {

@@ -1411,6 +1411,10 @@ pub trait Native: Send + Sync {
     fn opening(&self) -> bool {
         false
     }
+    /// DIAG: what the platform knows of view `id`.
+    fn diagnose(&self, _id: NodeId) -> String {
+        String::new()
+    }
     /// A picture of the window: PNG bytes, or UTF-8 Cell JSON on the terminal target.
     fn screenshot(&self) -> Result<Vec<u8>, String>;
     /// Makes the window `size` points.
@@ -2178,7 +2182,11 @@ impl Agent {
     ) -> Result<(Point<Points>, bool), String> {
         let not_on_screen = || {
             format!(
-                "`{selector}` is not on screen (it has no native view); {}",
+                "`{selector}` is not on screen (it has no native view) [DIAG id={id} bounds={:?} viewport={:?} scrollers={:?} native={}]; {}",
+                self.native.bounds(id),
+                self.native.viewport(),
+                self.scene.scroll_ancestors(id).map(|a| a.iter().map(|&(s, h)| (s, h, self.native.bounds(s), self.native.scroll_room(s, h))).collect::<Vec<_>>()),
+                self.native.diagnose(id),
                 self.on_screen()
             )
         };
@@ -2207,7 +2215,7 @@ impl Agent {
         // and out from under the edges of its scroll views.
         let arrived = |at: Point<Points>, scrolled: bool| {
             if !window.contains(&at) {
-                return Err(not_on_screen());
+                return Err(format!("[DIAG out of window at={at:?} window={window:?} scrolled={scrolled}] {}", not_on_screen()));
             }
             let under = scrollers.iter().any(|&(scroller, horizontal)| {
                 self.native.bounds(scroller).is_some_and(|b| {
